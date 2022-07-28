@@ -44,17 +44,22 @@ class Game():
         self.set_window()
         self.set_init_window()
 
+        # Timer
+        self.set_timers()
+
         # Jugador
         self.head = Head(init_pos=(300,300))
         self.player = pygame.sprite.Group()
         self.player.add(self.head)
 
         # Objetos - fruta
-        # self.fruit = Fruit(
-        #     type=random.choice(['naranja','sandia','pomelo','pera','cereza']), 
-        #     pos=(random.randint(0,30)*10,random.randint(0,30)*10)
-        #     )
-        self.fruit = pygame.sprite.GroupSingle()
+        self.rewards = pygame.sprite.Group()
+        self.rewards.add(
+            Fruit(
+                type=random.choice(['naranja','sandia','pomelo','pera','cereza']), 
+                pos=(random.randint(0,20)*30,random.randint(0,20)*30)
+            )
+        )
 
         # Score
         self.score = 0
@@ -74,6 +79,11 @@ class Game():
     def set_init_window(self):
         self.init_text = pygame.font.Font(None,25).render('Pulsa ESPACIO para jugar', True, 'white')
         self.init_rect = self.init_text.get_rect(center=(self._width/2,self._height/2))
+
+
+    def set_timers(self):
+        self.create_fruit = pygame.USEREVENT + 1
+        pygame.time.set_timer(self.create_fruit,5000)
 
     def run(self):
         quit = False
@@ -95,6 +105,14 @@ class Game():
                     if keys[pygame.K_RIGHT]: pass
                     if keys[pygame.K_LEFT]: pass
                 
+                if event.type == self.create_fruit:
+                    self.rewards.add(
+                        Fruit(
+                            type=random.choice(['naranja','sandia','pomelo','pera','cereza']), 
+                            pos=(random.randint(0,20)*30,random.randint(0,20)*30)
+                        )
+                    )
+                
             if game_state == True:
                 self.screen.fill('black')
 
@@ -106,6 +124,9 @@ class Game():
                             rect = (i,j,30,30),
                             width=1
                         )
+
+                self.rewards.draw(self.screen)
+                self.rewards.update()
 
                 self.player.draw(self.screen)
                 self.player.update()
