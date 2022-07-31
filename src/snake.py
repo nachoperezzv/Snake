@@ -17,28 +17,28 @@ class Head(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=init_pos)
 
         self.pos = init_pos
+        self.last = init_pos
         self.delta = 0
         self.movement = 'up'
-
-        self.time = 0
     
     def move(self):
-        if pygame.time.get_ticks() - self.time > 200:
-            if self.movement == 'up':
-                self.image = self.images['up']
-                self.rect.y -= 30
-            elif self.movement == 'down':
-                self.image = self.images['down']
-                self.rect.y += 30
-            elif self.movement == 'right':
-                self.image = self.images['right']
-                self.rect.x += 30
-            elif self.movement == 'left':
-                self.image = self.images['left']
-                self.rect.x -= 30
-            self.time = pygame.time.get_ticks()
+        self.last = self.pos
 
-            self.pos = self.rect.topleft
+        if self.movement == 'up':
+            self.image = self.images['up']
+            self.rect.y -= 30
+        elif self.movement == 'down':
+            self.image = self.images['down']
+            self.rect.y += 30
+        elif self.movement == 'right':
+            self.image = self.images['right']
+            self.rect.x += 30
+        elif self.movement == 'left':
+            self.image = self.images['left']
+            self.rect.x -= 30
+
+        self.pos = self.rect.topleft
+
     
     def out_of_limits(self):
         if (self.rect.x < 0 or self.rect.x > 600 or 
@@ -58,15 +58,13 @@ class Body(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=pos)
 
         self.pos = pos
-
-        self.time = 0
+        self.last = pos
     
     def move(self):
-        if pygame.time.get_ticks() - self.time > 200:
-            self.rect.topleft = self.pos
-            self.time = pygame.time.get_ticks()
+        self.last = self.pos 
 
-            self.pos = self.rect.topleft
+        self.rect.topleft = self.pos
+        self.pos = self.rect.topleft
             
     def update(self):
         self.move()
@@ -97,8 +95,11 @@ class Game():
 
         # Jugador
         self.head = Head(init_pos=(300,300))
-        self.player = pygame.sprite.Group()
-        self.player.add(self.head)
+
+        self.tail = pygame.sprite.Group()
+        self.snake = pygame.sprite.GroupSingle()
+
+        self.snake.add(self.head)
 
         # Objetos - fruta
         self.rewards = pygame.sprite.Group()
@@ -110,7 +111,7 @@ class Game():
         )
 
         # Score
-        self.score = 0
+        self.score = 1
 
     def set_window(self):
         pygame.init()
@@ -136,6 +137,11 @@ class Game():
         quit = False
         game_state = False
         end_state = False
+
+        snake_list = self.snake.sprites()
+        tail_list = self.tail.sprites()
+
+        self.time = pygame.time.get_ticks()
 
         while quit == False:
             # Eventos
@@ -171,6 +177,7 @@ class Game():
             if game_state == True:
                 self.screen.fill('black')
 
+                # Dibujar celdas
                 for i in range(0,self._width,30):
                     for j in range(0,self._height,30):
                         pygame.draw.rect(
@@ -179,50 +186,70 @@ class Game():
                             rect = (i,j,30,30),
                             width=1
                         )
-
+                
+                # Imprimir premios
                 self.rewards.draw(self.screen)
                 self.rewards.update()
-                
-                player_list = self.player.sprites()
-                self.player.draw(self.screen)        
-                self.player.update()
-                
-                last = this = player_list[0].pos
-                for i,e in enumerate(player_list):
-                    if i > 0:
-                        this = e.pos
-                        e.pos = last
-                    last = this        
 
+                # Refrescar posiciones 
+                tail_list = self.tail.sprites()
 
+                last = this = self.head.pos
+                for i,e in enumerate(tail_list):
+                    this = e.pos
+                    e.pos = last
+                    last = this 
+
+                # Dibujar snake
+                self.snake.draw(self.screen)   
+                self.tail.draw(self.screen)
+
+                                
                 # Coge fruta
+                fruit_eaten = False
                 for fruit in self.rewards:
-                    element = pygame.sprite.spritecollide(fruit,self.player,False)
-                    if bool(element):
+                    if bool(pygame.sprite.spritecollide(fruit,self.snake,False)):
                         self.score += 1
+                        fruit_eaten = True
+
                         fruit.kill()
-                        # new_pos = (300,300)
-                        # tam = len(player_list)-1
-                        # for i in range(tam).
-                        #     self.
-                        
+                                           
                 
+                if pygame.time.get_ticks() - self.time > 200:        
+                    if fruit_eaten == False:
+                        for seg in self.tail:
+                            seg.update()
+                    else:
+                        self.tail.add(Body(self.head.pos))
+
+                    self.snake.update()
+
+                    self.time = pygame.time.get_ticks()
+                
+                print(self.head.pos)
+                for seg in self.tail:
+                    print(seg.pos)
+                print('-----')
+
                 # Acaba el juego - Sale de los límites
                 if self.head.out_of_limits():
-                    self.player.remove()
+                    print('limites')
+                    self.snake.remove()
+                    self.tail.remove()
                     end_state = True
+                    game_state = False
                 
                 # Acaba el juego - Choca consigo mismo
-                for i,body in enumerate(self.player):
-                    if i > 0:
-                        object = pygame.sprite.spritecollide(self.head,self.player,False)
-                        if object != self.head:
-                            self.player.remove()
-                            end_state = True
-                
+                if bool(pygame.sprite.spritecollide(self.head,self.tail,False)):
+                    print('consigo mismo')
+                    self.snake.remove()
+                    self.tail.remove()
+                    end_state = True
+                    game_state = False
+            
                 self.display_score()
 
-            if game_state == False: 
+            if game_state == False and end_state == False: 
                 self.display_init_window()
 
             if end_state == True:
