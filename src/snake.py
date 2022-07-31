@@ -23,7 +23,7 @@ class Head(pygame.sprite.Sprite):
         self.time = 0
     
     def move(self):
-        if pygame.time.get_ticks() - self.time > 300:
+        if pygame.time.get_ticks() - self.time > 200:
             if self.movement == 'up':
                 self.image = self.images['up']
                 self.rect.y -= 30
@@ -37,6 +37,8 @@ class Head(pygame.sprite.Sprite):
                 self.image = self.images['left']
                 self.rect.x -= 30
             self.time = pygame.time.get_ticks()
+
+            self.pos = self.rect.topleft
     
     def out_of_limits(self):
         if (self.rect.x < 0 or self.rect.x > 600 or 
@@ -60,11 +62,12 @@ class Body(pygame.sprite.Sprite):
         self.time = 0
     
     def move(self):
-        if pygame.time.get_ticks() - self.time > 300:
+        if pygame.time.get_ticks() - self.time > 200:
             self.rect.topleft = self.pos
             self.time = pygame.time.get_ticks()
-            print('move body')
 
+            self.pos = self.rect.topleft
+            
     def update(self):
         self.move()
 
@@ -179,8 +182,11 @@ class Game():
 
                 self.rewards.draw(self.screen)
                 self.rewards.update()
-
+                
                 player_list = self.player.sprites()
+                self.player.draw(self.screen)        
+                self.player.update()
+                
                 last = this = player_list[0].pos
                 for i,e in enumerate(player_list):
                     if i > 0:
@@ -188,18 +194,31 @@ class Game():
                         e.pos = last
                     last = this        
 
-                self.player.draw(self.screen)        
-                self.player.update()
 
+                # Coge fruta
                 for fruit in self.rewards:
-                    if bool(pygame.sprite.spritecollide(fruit,self.player,True)):
+                    element = pygame.sprite.spritecollide(fruit,self.player,False)
+                    if bool(element):
                         self.score += 1
-                        self.player.add(Body(fruit.pos))
                         fruit.kill()
+                        # new_pos = (300,300)
+                        # tam = len(player_list)-1
+                        # for i in range(tam).
+                        #     self.
+                        
                 
+                # Acaba el juego - Sale de los límites
                 if self.head.out_of_limits():
                     self.player.remove()
                     end_state = True
+                
+                # Acaba el juego - Choca consigo mismo
+                for i,body in enumerate(self.player):
+                    if i > 0:
+                        object = pygame.sprite.spritecollide(self.head,self.player,False)
+                        if object != self.head:
+                            self.player.remove()
+                            end_state = True
                 
                 self.display_score()
 
@@ -209,7 +228,7 @@ class Game():
             if end_state == True:
                 self.display_end_window()
 
-            self.clock.tick(60)
+            self.clock.tick(120)
             pygame.display.flip()
             
     def display_init_window(self):      
