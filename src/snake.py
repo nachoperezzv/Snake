@@ -1,273 +1,110 @@
-import enum
-import sys
-from pip import main
 import pygame
 import random
+import sys
 
-class Head(pygame.sprite.Sprite):
+class Snake():
     def __init__(self,init_pos):
-        super().__init__()
-        img1 = pygame.image.load('../Include/icons/head.png')
-        img2 = pygame.image.load('../Include/icons/head_r.png')
-        img3 = pygame.image.load('../Include/icons/head_l.png')
-        img4 = pygame.image.load('../Include/icons/head_d.png')
-        self.images = {'up':img1,'right':img2,'left':img3,'down':img4}
+        self.x = init_pos[0]
+        self.y = init_pos[1]
+        
+        self.tail = []
+        self.tail.append([self.x,self.y])
 
-        self.image = self.images['up']
-        self.rect = self.image.get_rect(topleft=init_pos)
-
-        self.pos = init_pos
-        self.last = init_pos
-        self.delta = 0
         self.movement = 'up'
     
     def move(self):
-        self.last = self.pos
-
         if self.movement == 'up':
-            self.image = self.images['up']
-            self.rect.y -= 30
+            self.y -= 30
         elif self.movement == 'down':
-            self.image = self.images['down']
-            self.rect.y += 30
+            self.y += 30
         elif self.movement == 'right':
-            self.image = self.images['right']
-            self.rect.x += 30
+            self.x += 30
         elif self.movement == 'left':
-            self.image = self.images['left']
-            self.rect.x -= 30
-
-        self.pos = self.rect.topleft
-
+            self.x -= 30
     
-    def out_of_limits(self):
-        if (self.rect.x < 0 or self.rect.x > 600 or 
-            self.rect.y < 0 or self.rect.y > 600):
-            return True
-        else:
-            return False
+    def add(self,pos):
+        self.tail.append(pos)
 
     def update(self):
         self.move()
 
+        new_tail = self.tail.copy()
+        new_tail[0] = [self.x,self.y]
 
-class Body(pygame.sprite.Sprite):
-    def __init__(self,pos):
-        super().__init__()
-        self.image = pygame.image.load('../Include/icons/body.png')
-        self.rect = self.image.get_rect(topleft=pos)
+        for i in range(1,len(self.tail)):
+            new_tail[i] = self.tail[i-1]
 
-        self.pos = pos
-        self.last = pos
+        self.tail = new_tail
     
-    def move(self):
-        self.last = self.pos 
+    def draw(self,screen):
+        for seg in self.tail:
+            pygame.draw.rect(
+                surface=screen,
+                color='white',
+                rect=pygame.Rect(seg[0],seg[1],30,30)
+            )
 
-        self.rect.topleft = self.pos
-        self.pos = self.rect.topleft
-            
-    def update(self):
-        self.move()
-
-
-class Fruit(pygame.sprite.Sprite):
-    def __init__(self,type,pos):
-        super().__init__()
-        self.image = pygame.image.load('../Include/icons/{}.png'.format(str(type)))
-        self.rect = self.image.get_rect(topleft=pos)     
-
-        self.pos = pos   
+class Fruit():
+    def __init__(self):
+        self.x = random.randint(0,20)*30
+        self.y = random.randint(0,20)*30
+        
+        type = random.choice(['sandia','pomelo','naranja','pera','cereza'])
+        self.image = pygame.image.load('../Include/icons/{}.png'.format(type))
+        self.rect = self.image.get_rect(topleft=(self.x,self.y))
     
-    def destroy(self):
-        pass
-
-    def update(self):
-        pass
+    def draw(self,screen):
+        screen.blit(self.image,self.rect)
 
 class Game():
     def __init__(self):
-        # Ventana
-        self.set_window()
-        self.set_init_window()
 
-        # Timer
-        self.set_timers()
+        # Inicio de juego
+        self.set_game()
 
-        # Jugador
-        self.head = Head(init_pos=(300,300))
+        # Inicio timer para fruta
+        self.set_timer()
+        
+        # Inicio del jugador
+        self.set_player()
 
-        self.tail = pygame.sprite.Group()
-        self.snake = pygame.sprite.GroupSingle()
-
-        self.snake.add(self.head)
-
-        # Objetos - fruta
-        self.rewards = pygame.sprite.Group()
-        self.rewards.add(
-            Fruit(
-                type=random.choice(['naranja','sandia','pomelo','pera','cereza']), 
-                pos=(random.randint(0,20)*30,random.randint(0,20)*30)
-            )
-        )
-
-        # Score
-        self.score = 1
-
-    def set_window(self):
+    def set_game(self):
         pygame.init()
-    
-        self._width = 630
-        self._height = 630
-        self.screen = pygame.display.set_mode((self._width,self._height))
 
-        pygame.display.set_caption('Snake')
-        pygame.display.set_icon(pygame.image.load('../Include/icons/icon.png'))
+        self._width, self._height = 630,630
+        self.screen = pygame.display.set_mode((self._width,self._height))
+        self.caption = pygame.display.set_caption("Snake game")
+        self.icon = pygame.display.set_icon(pygame.image.load("../Include/icons/icon.png"))
 
         self.clock = pygame.time.Clock()
-    
-    def set_init_window(self):
-        self.init_text = pygame.font.Font(None,25).render('Pulsa ESPACIO para jugar', True, 'white')
-        self.init_rect = self.init_text.get_rect(center=(self._width/2,self._height/2))
 
-    def set_timers(self):
+        self.score = 0
+
+        self.update_time = 0
+
+        self.add_seg = False
+
+    def set_timer(self):
         self.create_fruit = pygame.USEREVENT + 1
-        pygame.time.set_timer(self.create_fruit,5000)
+        pygame.time.set_timer(self.create_fruit,4000)
 
-    def run(self):
-        quit = False
-        game_state = False
-        end_state = False
+    def set_player(self):
+        self.snake = Snake(init_pos=[300,300])
+        self.fruits = []
 
-        snake_list = self.snake.sprites()
-        tail_list = self.tail.sprites()
-
-        self.time = pygame.time.get_ticks()
-
-        while quit == False:
-            # Eventos
-            for event in pygame.event.get():
-
-                # Fin de juego
-                if event.type == pygame.QUIT:
-                    quit = True
-
-                # Teclado
-                if event.type == pygame.KEYDOWN: 
-                    keys = pygame.key.get_pressed()
-
-                    # Estado del juego
-                    if keys[pygame.K_SPACE]: game_state = not game_state
-                    if keys[pygame.K_ESCAPE]: game_state = False
-
-                    # Movimiento
-                    if keys[pygame.K_RIGHT]: self.head.movement='right'
-                    if keys[pygame.K_LEFT]: self.head.movement='left'
-                    if keys[pygame.K_UP]: self.head.movement='up'
-                    if keys[pygame.K_DOWN]: self.head.movement='down'
-                
-                # Creación de fruta
-                if event.type == self.create_fruit and game_state:
-                    self.rewards.add(
-                        Fruit(
-                            type=random.choice(['naranja','sandia','pomelo','pera','cereza']), 
-                            pos=(random.randint(0,20)*30,random.randint(0,20)*30)
-                        )
-                    )
-                
-            if game_state == True:
-                self.screen.fill('black')
-
-                # Dibujar celdas
-                for i in range(0,self._width,30):
-                    for j in range(0,self._height,30):
-                        pygame.draw.rect(
-                            surface = self.screen,
-                            color=[50,50,50],
-                            rect = (i,j,30,30),
-                            width=1
-                        )
-                
-                # Imprimir premios
-                self.rewards.draw(self.screen)
-                self.rewards.update()
-
-                # Refrescar posiciones 
-                tail_list = self.tail.sprites()
-
-                last = this = self.head.pos
-                for i,e in enumerate(tail_list):
-                    this = e.pos
-                    e.pos = last
-                    last = this 
-
-                # Dibujar snake
-                self.snake.draw(self.screen)   
-                self.tail.draw(self.screen)
-
-                                
-                # Coge fruta
-                fruit_eaten = False
-                for fruit in self.rewards:
-                    if bool(pygame.sprite.spritecollide(fruit,self.snake,False)):
-                        self.score += 1
-                        fruit_eaten = True
-
-                        fruit.kill()
-                                           
-                
-                if pygame.time.get_ticks() - self.time > 200:        
-                    if fruit_eaten == False:
-                        for seg in self.tail:
-                            seg.update()
-                    else:
-                        self.tail.add(Body(self.head.pos))
-
-                    self.snake.update()
-
-                    self.time = pygame.time.get_ticks()
-                
-                print(self.head.pos)
-                for seg in self.tail:
-                    print(seg.pos)
-                print('-----')
-
-                # Acaba el juego - Sale de los límites
-                if self.head.out_of_limits():
-                    print('limites')
-                    self.snake.remove()
-                    self.tail.remove()
-                    end_state = True
-                    game_state = False
-                
-                # Acaba el juego - Choca consigo mismo
-                if bool(pygame.sprite.spritecollide(self.head,self.tail,False)):
-                    print('consigo mismo')
-                    self.snake.remove()
-                    self.tail.remove()
-                    end_state = True
-                    game_state = False
-            
-                self.display_score()
-
-            if game_state == False and end_state == False: 
-                self.display_init_window()
-
-            if end_state == True:
-                self.display_end_window()
-
-            self.clock.tick(120)
-            pygame.display.flip()
-            
-    def display_init_window(self):      
+    def display_init_window(self):
+        init_text = pygame.font.Font(None,25).render('Pulsa ESPACIO para jugar', True, 'white')
+        init_rect = init_text.get_rect(center=(self._width/2,self._height/2))
+        
         self.screen.fill('black')
-        self.screen.blit(self.init_text,self.init_rect)
-    
+        self.screen.blit(init_text,init_rect)
+
     def display_score(self):
         score_text = pygame.font.Font(None,20).render(f'Score: {self.score}', True, 'white')
         score_rect = score_text.get_rect(topleft=(10,10))
 
         self.screen.blit(score_text,score_rect)
-    
+
     def display_end_window(self):
         self.screen.fill('black')
 
@@ -280,11 +117,91 @@ class Game():
         self.screen.blit(end_text,end_rect)
         self.screen.blit(score_text,score_rect)
 
-    def close(self):
+    def run(self):
+        game_state = False  # Para pantalla principal o juego
+        end_game = False    # Para cuando jugador muere
+        exit = False        # Para cuando jugador cierra juego
+
+        while exit == False:
+
+            # Catch de eventos
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    exit = True
+                
+                if event.type == pygame.KEYDOWN:
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_SPACE]: game_state = not game_state
+                    if keys[pygame.K_ESCAPE]: game_state = False
+                    
+                    if keys[pygame.K_RIGHT]: self.snake.movement = 'right'
+                    if keys[pygame.K_LEFT]: self.snake.movement = 'left'
+                    if keys[pygame.K_UP]: self.snake.movement = 'up'
+                    if keys[pygame.K_DOWN]: self.snake.movement = 'down'
+                
+                if event.type == self.create_fruit and game_state == True:
+                    self.fruits.append(Fruit())
+
+            if game_state == True:
+                self.play() 
+
+            elif game_state == False and end_game == False:
+                self.display_init_window()
+                self.update_time = pygame.time.get_ticks()
+            
+            elif game_state == False and end_game == True:
+                self.display_end_window()
+                self.update_time = pygame.time.get_ticks()
+
+            self.clock.tick(60)
+            pygame.display.flip()
+
+    def play(self):
+        # Imprime fondo
+        self.screen.fill('black')
+
+        # Imprime celdas
+        self.cells()
+
+        # Movimiento serpiente
+        if pygame.time.get_ticks() - self.update_time > 200:
+            
+            for fruit in self.fruits:
+                if self.snake.tail[len(self.snake.tail)-1] == [fruit.x,fruit.y]:
+                    self.score += 1
+                    self.fruits.remove(fruit)
+                    new_pos = self.snake.tail[len(self.snake.tail)-1]
+                    self.add_seg = True
+            
+            self.snake.update()
+            self.update_time = pygame.time.get_ticks()
+            
+            if self.add_seg == True:
+                self.snake.add(new_pos)   
+                self.add_seg = False        
+
+        # Imprime fruta
+        for fruit in self.fruits:
+            fruit.draw(self.screen)
+
+        # Imprime snake
+        self.snake.draw(self.screen)
+
+        # Imprime puntuación
+        self.display_score()
+
+    def cells(self):
+        for i in range(0,self._width,30):
+            for j in range(0,self._height,30):
+                pygame.draw.rect(
+                    surface = self.screen,
+                    color=[50,50,50],
+                    rect = (i,j,30,30),
+                    width=1
+                )
+
+    def exit(self):
         pygame.quit()
         sys.exit()
-
-
-
             
 
