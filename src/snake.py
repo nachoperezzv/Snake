@@ -11,6 +11,8 @@ class Snake():
         self.tail.append([self.x,self.y])
 
         self.movement = 'up'
+
+        self.dead_sound = pygame.mixer.Sound('../Include/sounds/dead.wav')
     
     def move(self):
         if self.movement == 'up':
@@ -36,6 +38,21 @@ class Snake():
 
         self.tail = new_tail
     
+    def limits(self):
+        if (self.x < 0 or self.x > 630 or 
+            self.y < 0 or self.y > 630):
+            self.dead_sound.play()
+            return True
+        else:
+            return False
+
+    def itself(self):
+        for i in range(1,len(self.tail)):
+            if [self.x,self.y] == self.tail[i]:
+                self.dead_sound.play()
+                return True
+        return False
+
     def draw(self,screen):
         for seg in self.tail:
             pygame.draw.rect(
@@ -92,6 +109,8 @@ class Game():
         self.snake = Snake(init_pos=[300,300])
         self.fruits = []
 
+        self.eat_sound = pygame.mixer.Sound('../Include/sounds/eat.wav')
+
     def display_init_window(self):
         init_text = pygame.font.Font(None,25).render('Pulsa ESPACIO para jugar', True, 'white')
         init_rect = init_text.get_rect(center=(self._width/2,self._height/2))
@@ -118,8 +137,8 @@ class Game():
         self.screen.blit(score_text,score_rect)
 
     def run(self):
-        game_state = False  # Para pantalla principal o juego
-        end_game = False    # Para cuando jugador muere
+        self.game_state = False  # Para pantalla principal o juego
+        self.end_game = False    # Para cuando jugador muere
         exit = False        # Para cuando jugador cierra juego
 
         while exit == False:
@@ -131,25 +150,25 @@ class Game():
                 
                 if event.type == pygame.KEYDOWN:
                     keys = pygame.key.get_pressed()
-                    if keys[pygame.K_SPACE]: game_state = not game_state
-                    if keys[pygame.K_ESCAPE]: game_state = False
+                    if keys[pygame.K_SPACE]: self.game_state = not self.game_state
+                    if keys[pygame.K_ESCAPE]: self.game_state = False
                     
                     if keys[pygame.K_RIGHT]: self.snake.movement = 'right'
                     if keys[pygame.K_LEFT]: self.snake.movement = 'left'
                     if keys[pygame.K_UP]: self.snake.movement = 'up'
                     if keys[pygame.K_DOWN]: self.snake.movement = 'down'
                 
-                if event.type == self.create_fruit and game_state == True:
+                if event.type == self.create_fruit and self.game_state == True:
                     self.fruits.append(Fruit())
 
-            if game_state == True:
+            if self.game_state == True:
                 self.play() 
 
-            elif game_state == False and end_game == False:
+            elif self.game_state == False and self.end_game == False:
                 self.display_init_window()
                 self.update_time = pygame.time.get_ticks()
             
-            elif game_state == False and end_game == True:
+            elif self.game_state == False and self.end_game == True:
                 self.display_end_window()
                 self.update_time = pygame.time.get_ticks()
 
@@ -163,12 +182,16 @@ class Game():
         # Imprime celdas
         self.cells()
 
-        # Movimiento serpiente
+        # Movimiento serpiente y check come fruta
         if pygame.time.get_ticks() - self.update_time > 200:
             
             for fruit in self.fruits:
-                if self.snake.tail[len(self.snake.tail)-1] == [fruit.x,fruit.y]:
+                if [self.snake.x,self.snake.y] == [fruit.x,fruit.y]:
                     self.score += 1
+                    self.eat_sound.play()
+
+            for fruit in self.fruits:
+                if self.snake.tail[len(self.snake.tail)-1] == [fruit.x,fruit.y]:
                     self.fruits.remove(fruit)
                     new_pos = self.snake.tail[len(self.snake.tail)-1]
                     self.add_seg = True
@@ -183,6 +206,11 @@ class Game():
         # Imprime fruta
         for fruit in self.fruits:
             fruit.draw(self.screen)
+        
+        # Check limites
+        if self.snake.limits() or self.snake.itself():
+            self.end_game = True
+            self.game_state = False
 
         # Imprime snake
         self.snake.draw(self.screen)
