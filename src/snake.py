@@ -1,3 +1,4 @@
+from cgitb import text
 import pygame
 import random
 import sys
@@ -12,6 +13,20 @@ class Snake():
 
         self.movement = 'up'
 
+        self.up = pygame.image.load('../Include/icons/head.png')
+        self.down = pygame.image.load('../Include/icons/head_d.png')
+        self.right = pygame.image.load('../Include/icons/head_r.png')
+        self.left = pygame.image.load('../Include/icons/head_l.png')
+
+        self.images = {
+            'up': self.up,
+            'down': self.down,
+            'right': self.right,
+            'left': self.left
+        }
+
+        self.image = self.images[self.movement]
+
         self.dead_sound = pygame.mixer.Sound('../Include/sounds/dead.wav')
     
     def move(self):
@@ -23,6 +38,8 @@ class Snake():
             self.x += 30
         elif self.movement == 'left':
             self.x -= 30
+        
+        self.image = self.images[self.movement]
     
     def add(self,pos):
         self.tail.append(pos)
@@ -54,12 +71,17 @@ class Snake():
         return False
 
     def draw(self,screen):
-        for seg in self.tail:
-            pygame.draw.rect(
-                surface=screen,
-                color='white',
-                rect=pygame.Rect(seg[0],seg[1],30,30)
-            )
+        for i,seg in enumerate(self.tail):
+            if i == 0:
+                rect = self.image.get_rect(topleft=(seg[0],seg[1]))
+                screen.blit(self.image,rect)
+            else:
+                pygame.draw.rect(
+                    surface=screen,
+                    color='white',
+                    rect=pygame.Rect(seg[0],seg[1],30,30)
+                )
+
 
 class Fruit():
     def __init__(self):
@@ -73,6 +95,7 @@ class Fruit():
     def draw(self,screen):
         screen.blit(self.image,self.rect)
 
+
 class Game():
     def __init__(self):
 
@@ -84,6 +107,12 @@ class Game():
         
         # Inicio del jugador
         self.set_player()
+
+        # Inicio sonidos
+        self.set_sounds()
+
+        # Inicio botón
+        self.set_buttons()
 
     def set_game(self):
         pygame.init()
@@ -109,7 +138,28 @@ class Game():
         self.snake = Snake(init_pos=[300,300])
         self.fruits = []
 
+    def set_sounds(self):
         self.eat_sound = pygame.mixer.Sound('../Include/sounds/eat.wav')
+
+    def set_buttons(self):
+        self.restart_button = Button(
+            text='<-',
+            left=560,top=60,width=30,height=30,
+            font=pygame.font.Font(None,20)
+        )
+
+    def restart_game(self):
+        del self.snake
+        del self.fruits
+
+        self.score = 0
+        self.update_time = 0
+        self.add_seg = 0
+
+        self.set_player()
+
+        self.game_state = True
+        self.end_game = False
 
     def display_init_window(self):
         init_text = pygame.font.Font(None,25).render('Pulsa ESPACIO para jugar', True, 'white')
@@ -135,6 +185,13 @@ class Game():
 
         self.screen.blit(end_text,end_rect)
         self.screen.blit(score_text,score_rect)
+
+        self.display_button()
+    
+    def display_button(self):
+        if self.restart_button.draw(self.screen):
+            self.restart_button.pressed = False
+            self.restart_game()
 
     def run(self):
         self.game_state = False  # Para pantalla principal o juego
@@ -231,5 +288,74 @@ class Game():
     def exit(self):
         pygame.quit()
         sys.exit()
-            
+
+
+class Button:
+    def __init__(
+                    self,text,left,top,width,height,
+                    font, elevation=3, 
+                    text_color=[255,255,255],
+                    btn_color_on=[195,195,195], btn_color_off=[175,175,175],
+                    btn_color_bg=[25,25,25],
+                    border_radius = 6
+                ):
+
+        #Core attributes 
+        self.pressed            = False
+        self.elevation          = elevation
+        self.dynamic_elecation  = elevation
+        self.pos                = (left,top)
+        self.width              = width
+        self.height             = height
+        self.color_on           = btn_color_on
+        self.color_off          = btn_color_off
+        self.color_bg           = btn_color_bg
+        self.border_radius      = border_radius
+        # top rectangle 
+        self.top_rect = pygame.Rect(self.pos,(self.width,self.height))
+        self.top_color = self.color_off
+
+        # bottom rectangle 
+        self.bottom_rect = pygame.Rect(self.pos,(self.width,self.height))
+        self.bottom_color = self.color_bg
+        #text
+        self.text_surf = font.render(text,True,text_color)
+        self.text_rect = self.text_surf.get_rect(center = self.top_rect.center)
+
+    def draw(self, screen):
+    # elevation logic 
+        self.top_rect.y = self.pos[1] - self.dynamic_elecation
+        self.text_rect.center = self.top_rect.center 
+
+        self.bottom_rect.midtop = self.top_rect.midtop
+        self.bottom_rect.height = self.top_rect.height + self.dynamic_elecation
+
+        pygame.draw.rect(screen,self.bottom_color, self.bottom_rect,border_radius = self.border_radius)
+        pygame.draw.rect(screen,self.top_color, self.top_rect,border_radius = self.border_radius)
+        screen.blit(self.text_surf, self.text_rect)
+        return self.check_click()
+
+    def check_click(self,kwargs=None):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.top_rect.collidepoint(mouse_pos):
+            self.top_color = self.color_on
+            if pygame.mouse.get_pressed()[0]:
+                self.dynamic_elecation = 0
+                self.pressed = True
+            else:
+                self.dynamic_elecation = self.elevation
+                if self.pressed == True:
+                    return True
+                    # if kwargs == None:
+                    #     function()
+                    # else:
+                    #     function(**kwargs)
+                    # self.pressed = False
+        else:
+            self.dynamic_elecation = self.elevation
+            self.top_color = self.color_off
+            return False
+        
+    def get_Rect(self):
+        return self.top_rect
 
