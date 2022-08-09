@@ -6,12 +6,14 @@ El Snake es un videojuego lanzado a mediados de la década de 1970 por _Gremlin 
 
 
 ## Índice
-1. [Índice](Índice)
-2. [Descargar](Descargar)
-3. [Compilar](Compilar)
-4. [Reglasdeljuego](Reglasdeljuego)
-5. [Controles](Controles)
+1. [Índice](#índice)
+2. [Descargar](#descargar)
+3. [Compilar](#compilar)
+4. [Reglasdeljuego](#reglas-del-juego)
+5. [Controles](#controles)
 
+
+## Descargar
 1. Clone el repositorio desde su bash en la ubicación en la que desea tenerlo:
 ```
 git clone https://github.com/nachoperezzv/Snake.git
